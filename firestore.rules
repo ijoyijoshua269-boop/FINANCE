@@ -1,0 +1,447 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Phase 3: Hardened Global Helpers
+    // =========================================================================
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(ownerId) {
+      return isValidId(ownerId) && (
+        ownerId == "pristen_investments_corp" ||
+        (isSignedIn() && request.auth.uid == ownerId)
+      );
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == "ijoyijoshua269@gmail.com";
+    }
+
+    function isOwnerOrBootstrappedAdmin(ownerId) {
+      return isOwner(ownerId) || isBootstrappedAdmin();
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == "ijoyijoshua269@gmail.com" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // =========================================================================
+    // Entity Validation Blueprints (Pillar 2: Anti-Update-Gap)
+    // =========================================================================
+
+    function isValidBorrower(data) {
+      return data.keys().hasAll([
+        'ownerId', 'fullName', 'nationalIdOrRegNo', 'phone', 'email',
+        'address', 'occupationOrSector', 'creditTier', 'monthlyIncomeUGX',
+        'collateralSummary', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'fullName', 'nationalIdOrRegNo', 'phone', 'email',
+        'address', 'occupationOrSector', 'creditTier', 'monthlyIncomeUGX',
+        'collateralSummary', 'createdAt', 'updatedAt'
+      ]) &&
+      isOwner(data.ownerId) &&
+      isValidId(data.ownerId) &&
+      data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 120 &&
+      data.nationalIdOrRegNo is string && data.nationalIdOrRegNo.size() >= 3 && data.nationalIdOrRegNo.size() <= 50 &&
+      data.phone is string && data.phone.size() >= 7 && data.phone.size() <= 30 &&
+      data.email is string && data.email.size() >= 3 && data.email.size() <= 120 &&
+      data.address is string && data.address.size() >= 2 && data.address.size() <= 200 &&
+      data.occupationOrSector is string && data.occupationOrSector.size() >= 2 && data.occupationOrSector.size() <= 100 &&
+      data.creditTier is string && data.creditTier in ['Prime', 'Standard', 'Watchlist'] &&
+      data.monthlyIncomeUGX is number && data.monthlyIncomeUGX >= 0 && data.monthlyIncomeUGX <= 1000000000000 &&
+      data.collateralSummary is string && data.collateralSummary.size() >= 2 && data.collateralSummary.size() <= 300 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidLoan(data) {
+      return data.keys().hasAll([
+        'ownerId', 'loanReference', 'borrowerId', 'borrowerName', 'borrowerPhone',
+        'borrowerEmail', 'currency', 'principalAmount', 'annualInterestRate',
+        'interestMethod', 'termMonths', 'paymentFrequency', 'disbursementDate',
+        'nextDueDate', 'totalInterestProjected', 'totalPayable', 'amountPaid',
+        'outstandingBalance', 'installmentsCount', 'paidInstallmentsCount',
+        'status', 'autoReminderEnabled', 'reminderDaysBefore', 'purpose',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'loanReference', 'borrowerId', 'borrowerName', 'borrowerPhone',
+        'borrowerEmail', 'currency', 'principalAmount', 'annualInterestRate',
+        'interestMethod', 'termMonths', 'paymentFrequency', 'disbursementDate',
+        'nextDueDate', 'totalInterestProjected', 'totalPayable', 'amountPaid',
+        'outstandingBalance', 'installmentsCount', 'paidInstallmentsCount',
+        'status', 'autoReminderEnabled', 'reminderDaysBefore', 'purpose',
+        'createdAt', 'updatedAt'
+      ]) &&
+      isOwner(data.ownerId) &&
+      isValidId(data.ownerId) &&
+      data.loanReference is string && data.loanReference.size() >= 3 && data.loanReference.size() <= 40 &&
+      isValidId(data.borrowerId) &&
+      data.borrowerName is string && data.borrowerName.size() >= 2 && data.borrowerName.size() <= 120 &&
+      data.borrowerPhone is string && data.borrowerPhone.size() >= 7 && data.borrowerPhone.size() <= 30 &&
+      data.borrowerEmail is string && data.borrowerEmail.size() >= 3 && data.borrowerEmail.size() <= 120 &&
+      data.currency is string && data.currency in ['UGX', 'USD'] &&
+      data.principalAmount is number && data.principalAmount > 0 && data.principalAmount <= 1000000000000 &&
+      data.annualInterestRate is number && data.annualInterestRate >= 0 && data.annualInterestRate <= 200 &&
+      data.interestMethod is string && data.interestMethod in ['reducing_balance', 'flat_rate', 'interest_only'] &&
+      data.termMonths is number && data.termMonths >= 1 && data.termMonths <= 360 &&
+      data.paymentFrequency is string && data.paymentFrequency in ['monthly', 'biweekly', 'weekly'] &&
+      data.disbursementDate is string && data.disbursementDate.size() >= 10 && data.disbursementDate.size() <= 25 &&
+      data.nextDueDate is string && data.nextDueDate.size() >= 10 && data.nextDueDate.size() <= 25 &&
+      data.totalInterestProjected is number && data.totalInterestProjected >= 0 &&
+      data.totalPayable is number && data.totalPayable >= 0 &&
+      data.amountPaid is number && data.amountPaid >= 0 &&
+      data.outstandingBalance is number && data.outstandingBalance >= 0 &&
+      data.installmentsCount is number && data.installmentsCount >= 1 && data.installmentsCount <= 1040 &&
+      data.paidInstallmentsCount is number && data.paidInstallmentsCount >= 0 && data.paidInstallmentsCount <= 1040 &&
+      data.status is string && data.status in ['active', 'overdue', 'paid_off', 'defaulted'] &&
+      data.autoReminderEnabled is bool &&
+      data.reminderDaysBefore is number && data.reminderDaysBefore >= 0 && data.reminderDaysBefore <= 30 &&
+      data.purpose is string && data.purpose.size() >= 2 && data.purpose.size() <= 250 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidInstallment(data) {
+      return data.keys().hasAll([
+        'ownerId', 'loanId', 'installmentNumber', 'dueDate', 'scheduledAmount',
+        'principalComponent', 'interestComponent', 'remainingBalanceAfter',
+        'amountPaid', 'paidDate', 'paymentReference', 'status',
+        'reminderSentCount', 'lastReminderAt', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'loanId', 'installmentNumber', 'dueDate', 'scheduledAmount',
+        'principalComponent', 'interestComponent', 'remainingBalanceAfter',
+        'amountPaid', 'paidDate', 'paymentReference', 'status',
+        'reminderSentCount', 'lastReminderAt', 'createdAt', 'updatedAt'
+      ]) &&
+      isOwner(data.ownerId) &&
+      isValidId(data.ownerId) &&
+      isValidId(data.loanId) &&
+      data.installmentNumber is number && data.installmentNumber >= 1 && data.installmentNumber <= 1040 &&
+      data.dueDate is string && data.dueDate.size() >= 10 && data.dueDate.size() <= 25 &&
+      data.scheduledAmount is number && data.scheduledAmount >= 0 &&
+      data.principalComponent is number && data.principalComponent >= 0 &&
+      data.interestComponent is number && data.interestComponent >= 0 &&
+      data.remainingBalanceAfter is number && data.remainingBalanceAfter >= 0 &&
+      data.amountPaid is number && data.amountPaid >= 0 &&
+      data.paidDate is string && data.paidDate.size() <= 30 &&
+      data.paymentReference is string && data.paymentReference.size() <= 80 &&
+      data.status is string && data.status in ['upcoming', 'due_soon', 'paid', 'partial', 'overdue'] &&
+      data.reminderSentCount is number && data.reminderSentCount >= 0 && data.reminderSentCount <= 100 &&
+      data.lastReminderAt is string && data.lastReminderAt.size() <= 40 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidReminder(data) {
+      return data.keys().hasAll([
+        'ownerId', 'loanId', 'loanReference', 'borrowerName', 'borrowerContact',
+        'channel', 'triggerType', 'installmentNumber', 'dueDate', 'amountDue',
+        'currency', 'messageBody', 'deliveryStatus', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'loanId', 'loanReference', 'borrowerName', 'borrowerContact',
+        'channel', 'triggerType', 'installmentNumber', 'dueDate', 'amountDue',
+        'currency', 'messageBody', 'deliveryStatus', 'createdAt', 'updatedAt'
+      ]) &&
+      isOwner(data.ownerId) &&
+      isValidId(data.ownerId) &&
+      isValidId(data.loanId) &&
+      data.loanReference is string && data.loanReference.size() >= 3 && data.loanReference.size() <= 40 &&
+      data.borrowerName is string && data.borrowerName.size() >= 2 && data.borrowerName.size() <= 120 &&
+      data.borrowerContact is string && data.borrowerContact.size() >= 3 && data.borrowerContact.size() <= 120 &&
+      data.channel is string && data.channel in ['SMS', 'Email', 'WhatsApp'] &&
+      data.triggerType is string && data.triggerType in ['Upcoming Due', 'Due Today', 'Overdue Escalation', 'Payment Receipt'] &&
+      data.installmentNumber is number && data.installmentNumber >= 1 && data.installmentNumber <= 1040 &&
+      data.dueDate is string && data.dueDate.size() >= 10 && data.dueDate.size() <= 25 &&
+      data.amountDue is number && data.amountDue >= 0 &&
+      data.currency is string && data.currency in ['UGX', 'USD'] &&
+      data.messageBody is string && data.messageBody.size() >= 5 && data.messageBody.size() <= 1000 &&
+      data.deliveryStatus is string && data.deliveryStatus in ['dispatched', 'scheduled', 'acknowledged'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidStaffMember(data) {
+      return data.keys().hasAll([
+        'ownerId', 'fullName', 'employeeCode', 'role', 'department',
+        'phone', 'email', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'fullName', 'employeeCode', 'role', 'department',
+        'phone', 'email', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      isOwner(data.ownerId) &&
+      isValidId(data.ownerId) &&
+      data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 120 &&
+      data.employeeCode is string && data.employeeCode.size() >= 3 && data.employeeCode.size() <= 40 &&
+      data.role is string && data.role in [
+        'executive_director', 'coo', 'cfo', 'finance_officer',
+        'hr', 'manager', 'sales_person', 'teller'
+      ] &&
+      data.department is string && data.department in [
+        'Executive Office', 'Operations (COO)', 'Finance Department (CFO)',
+        'Human Resources (HR)', 'Credit Management', 'Sales & Origination',
+        'Teller Disbursement Desk'
+      ] &&
+      data.phone is string && data.phone.size() >= 7 && data.phone.size() <= 30 &&
+      data.email is string && data.email.size() >= 3 && data.email.size() <= 120 &&
+      data.status is string && data.status in ['active', 'suspended'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // =========================================================================
+    // Collection Rules
+    // =========================================================================
+
+    // Admins Collection — Strictly system-controlled; no client writes
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && (request.auth.uid == adminId || isAdmin());
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // Staff & Workers Collection (Executive Director, COO, CFO, Finance, HR, Manager, Sales, Teller)
+    match /staff/{staffId} {
+      allow get: if isValidId(staffId) && (isOwner(existing().ownerId) || isAdmin());
+      allow list: if isOwnerOrBootstrappedAdmin(existing().ownerId);
+
+      allow create: if isValidId(staffId) &&
+        isValidStaffMember(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(staffId) &&
+        isValidStaffMember(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (
+            isOwner(existing().ownerId) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'fullName', 'employeeCode', 'role', 'department',
+              'phone', 'email', 'status', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isValidId(staffId) && (isOwner(existing().ownerId) || isAdmin());
+    }
+
+    // Borrowers Collection (Contains PII — strictly isolated to Owner or Admin)
+    match /borrowers/{borrowerId} {
+      allow get: if isValidId(borrowerId) && (isOwner(existing().ownerId) || isAdmin());
+      allow list: if isOwnerOrBootstrappedAdmin(existing().ownerId);
+
+      allow create: if isValidId(borrowerId) &&
+        isValidBorrower(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(borrowerId) &&
+        isValidBorrower(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (
+            isOwner(existing().ownerId) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'fullName', 'nationalIdOrRegNo', 'phone', 'email', 'address',
+              'occupationOrSector', 'creditTier', 'monthlyIncomeUGX',
+              'collateralSummary', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isValidId(borrowerId) && (isOwner(existing().ownerId) || isAdmin());
+    }
+
+    // Loans Collection
+    match /loans/{loanId} {
+      allow get: if isValidId(loanId) && (isOwner(existing().ownerId) || isAdmin());
+      allow list: if isOwnerOrBootstrappedAdmin(existing().ownerId);
+
+      allow create: if isValidId(loanId) &&
+        isValidLoan(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (
+          getAfter(/databases/$(database)/documents/borrowers/$(incoming().borrowerId)).data.ownerId == incoming().ownerId ||
+          isAdmin()
+        );
+
+      allow update: if isValidId(loanId) &&
+        isValidLoan(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().borrowerId == existing().borrowerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          // Action 1: Record Repayment or Schedule Progression (Terminal State Locked)
+          (
+            isOwner(existing().ownerId) &&
+            !(existing().status in ['paid_off', 'defaulted']) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'amountPaid', 'outstandingBalance', 'paidInstallmentsCount',
+              'nextDueDate', 'status', 'updatedAt'
+            ])
+          ) ||
+          // Action 2: Configure Automated Reminder Settings (Terminal State Locked)
+          (
+            isOwner(existing().ownerId) &&
+            !(existing().status in ['paid_off', 'defaulted']) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'autoReminderEnabled', 'reminderDaysBefore', 'updatedAt'
+            ])
+          ) ||
+          // Action 3: Finance Department Approves & Sends Disbursed Loan Money to Client (Terminal State Locked)
+          (
+            isOwner(existing().ownerId) &&
+            !(existing().status in ['paid_off', 'defaulted']) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'purpose', 'disbursementDate', 'status', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isValidId(loanId) && (isOwner(existing().ownerId) || isAdmin());
+
+      // Installments Subcollection (Pillar 1: Master Gate on parent Loan)
+      match /installments/{installmentId} {
+        allow get: if isValidId(loanId) &&
+          isValidId(installmentId) &&
+          (
+            (
+              isOwner(existing().ownerId) &&
+              get(/databases/$(database)/documents/loans/$(loanId)).data.ownerId == existing().ownerId
+            ) ||
+            isAdmin()
+          );
+
+        // Pillar 8: Cost-optimized list check without get()/exists() inside list
+        allow list: if isOwnerOrBootstrappedAdmin(existing().ownerId);
+
+        allow create: if isValidId(loanId) &&
+          isValidId(installmentId) &&
+          isValidInstallment(incoming()) &&
+          incoming().loanId == loanId &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          (
+            getAfter(/databases/$(database)/documents/loans/$(loanId)).data.ownerId == incoming().ownerId ||
+            isAdmin()
+          );
+
+        allow update: if isValidId(loanId) &&
+          isValidId(installmentId) &&
+          isValidInstallment(incoming()) &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().loanId == existing().loanId &&
+          incoming().installmentNumber == existing().installmentNumber &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            isAdmin() ||
+            // Action 1: Record Installment Payment (Terminal state 'paid' locked)
+            (
+              isOwner(existing().ownerId) &&
+              get(/databases/$(database)/documents/loans/$(loanId)).data.ownerId == existing().ownerId &&
+              existing().status != 'paid' &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'amountPaid', 'paidDate', 'paymentReference', 'status',
+                'reminderSentCount', 'lastReminderAt', 'updatedAt'
+              ])
+            ) ||
+            // Action 2: Log Automated or Manual Reminder Dispatch
+            (
+              isOwner(existing().ownerId) &&
+              get(/databases/$(database)/documents/loans/$(loanId)).data.ownerId == existing().ownerId &&
+              existing().status != 'paid' &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'reminderSentCount', 'lastReminderAt', 'status', 'updatedAt'
+              ])
+            )
+          );
+
+        allow delete: if isValidId(loanId) &&
+          isValidId(installmentId) &&
+          (
+            (
+              isOwner(existing().ownerId) &&
+              get(/databases/$(database)/documents/loans/$(loanId)).data.ownerId == existing().ownerId
+            ) ||
+            isAdmin()
+          );
+      }
+    }
+
+    // Reminders Collection
+    match /reminders/{reminderId} {
+      allow get: if isValidId(reminderId) && (isOwner(existing().ownerId) || isAdmin());
+      allow list: if isOwnerOrBootstrappedAdmin(existing().ownerId);
+
+      allow create: if isValidId(reminderId) &&
+        isValidReminder(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (
+          getAfter(/databases/$(database)/documents/loans/$(incoming().loanId)).data.ownerId == incoming().ownerId ||
+          isAdmin()
+        );
+
+      allow update: if isValidId(reminderId) &&
+        isValidReminder(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().loanId == existing().loanId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          // Action: Update Delivery Status (Terminal state 'acknowledged' locked)
+          (
+            isOwner(existing().ownerId) &&
+            existing().deliveryStatus != 'acknowledged' &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'deliveryStatus', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isValidId(reminderId) && (isOwner(existing().ownerId) || isAdmin());
+    }
+  }
+}

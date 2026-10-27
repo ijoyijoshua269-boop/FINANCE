@@ -1,0 +1,607 @@
+{
+  "entities": {
+    "Borrower": {
+      "title": "Borrower",
+      "description": "A corporate or individual borrower registered with Pristen Holdings (U) Ltd.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the loan officer or portfolio owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Legal name of individual or registered business entity.",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "nationalIdOrRegNo": {
+          "type": "string",
+          "description": "Uganda NIN or URSB Company Registration Number.",
+          "minLength": 3,
+          "maxLength": 50
+        },
+        "phone": {
+          "type": "string",
+          "description": "Primary telephone / Mobile Money number.",
+          "minLength": 7,
+          "maxLength": 30
+        },
+        "email": {
+          "type": "string",
+          "description": "Primary contact email address.",
+          "minLength": 3,
+          "maxLength": 120
+        },
+        "address": {
+          "type": "string",
+          "description": "Physical plot, street, and district address.",
+          "minLength": 2,
+          "maxLength": 200
+        },
+        "occupationOrSector": {
+          "type": "string",
+          "description": "Economic sector or occupation.",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "creditTier": {
+          "type": "string",
+          "description": "Internal credit risk classification.",
+          "enum": ["Prime", "Standard", "Watchlist"]
+        },
+        "monthlyIncomeUGX": {
+          "type": "number",
+          "description": "Verified monthly net cashflow in UGX."
+        },
+        "collateralSummary": {
+          "type": "string",
+          "description": "Description of pledged security or land title.",
+          "minLength": 2,
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of borrower creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last borrower update."
+        }
+      },
+      "required": [
+        "ownerId",
+        "fullName",
+        "nationalIdOrRegNo",
+        "phone",
+        "email",
+        "address",
+        "occupationOrSector",
+        "creditTier",
+        "monthlyIncomeUGX",
+        "collateralSummary",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Loan": {
+      "title": "Loan",
+      "description": "A loan facility issued by Pristen Holdings (U) Ltd with interest and schedule terms.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the portfolio owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "loanReference": {
+          "type": "string",
+          "description": "Human-readable facility code (e.g., PHL-2026-001).",
+          "minLength": 3,
+          "maxLength": 40
+        },
+        "borrowerId": {
+          "type": "string",
+          "description": "Document ID of the associated Borrower.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "borrowerName": {
+          "type": "string",
+          "description": "Denormalized borrower full name.",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "borrowerPhone": {
+          "type": "string",
+          "description": "Denormalized borrower phone number.",
+          "minLength": 7,
+          "maxLength": 30
+        },
+        "borrowerEmail": {
+          "type": "string",
+          "description": "Denormalized borrower email.",
+          "minLength": 3,
+          "maxLength": 120
+        },
+        "currency": {
+          "type": "string",
+          "description": "Facility currency code.",
+          "enum": ["UGX", "USD"]
+        },
+        "principalAmount": {
+          "type": "number",
+          "description": "Original disbursed principal amount."
+        },
+        "annualInterestRate": {
+          "type": "number",
+          "description": "Nominal annual interest rate percentage."
+        },
+        "interestMethod": {
+          "type": "string",
+          "description": "Interest calculation methodology.",
+          "enum": ["reducing_balance", "flat_rate", "interest_only"]
+        },
+        "termMonths": {
+          "type": "number",
+          "description": "Facility duration in months."
+        },
+        "paymentFrequency": {
+          "type": "string",
+          "description": "Repayment schedule cadence.",
+          "enum": ["monthly", "biweekly", "weekly"]
+        },
+        "disbursementDate": {
+          "type": "string",
+          "description": "ISO date of loan disbursement (YYYY-MM-DD).",
+          "minLength": 10,
+          "maxLength": 25
+        },
+        "nextDueDate": {
+          "type": "string",
+          "description": "ISO date of next scheduled installment.",
+          "minLength": 10,
+          "maxLength": 25
+        },
+        "totalInterestProjected": {
+          "type": "number",
+          "description": "Total interest payable over the full term."
+        },
+        "totalPayable": {
+          "type": "number",
+          "description": "Total principal plus projected interest."
+        },
+        "amountPaid": {
+          "type": "number",
+          "description": "Cumulative amount repaid to date."
+        },
+        "outstandingBalance": {
+          "type": "number",
+          "description": "Remaining total balance payable."
+        },
+        "installmentsCount": {
+          "type": "number",
+          "description": "Total number of scheduled installments."
+        },
+        "paidInstallmentsCount": {
+          "type": "number",
+          "description": "Number of installments settled so far."
+        },
+        "status": {
+          "type": "string",
+          "description": "Current lifecycle status of the loan.",
+          "enum": ["active", "overdue", "paid_off", "defaulted"]
+        },
+        "autoReminderEnabled": {
+          "type": "boolean",
+          "description": "Whether automated reminders are enabled for this loan."
+        },
+        "reminderDaysBefore": {
+          "type": "number",
+          "description": "Days prior to installment due date to trigger pre-due reminder."
+        },
+        "purpose": {
+          "type": "string",
+          "description": "Stated commercial or personal purpose of the loan.",
+          "minLength": 2,
+          "maxLength": 250
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of loan creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last loan update."
+        }
+      },
+      "required": [
+        "ownerId",
+        "loanReference",
+        "borrowerId",
+        "borrowerName",
+        "borrowerPhone",
+        "borrowerEmail",
+        "currency",
+        "principalAmount",
+        "annualInterestRate",
+        "interestMethod",
+        "termMonths",
+        "paymentFrequency",
+        "disbursementDate",
+        "nextDueDate",
+        "totalInterestProjected",
+        "totalPayable",
+        "amountPaid",
+        "outstandingBalance",
+        "installmentsCount",
+        "paidInstallmentsCount",
+        "status",
+        "autoReminderEnabled",
+        "reminderDaysBefore",
+        "purpose",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Installment": {
+      "title": "Installment",
+      "description": "An individual scheduled repayment installment belonging to a specific Loan.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the portfolio owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "loanId": {
+          "type": "string",
+          "description": "Parent loan document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "installmentNumber": {
+          "type": "number",
+          "description": "1-indexed sequence number in the schedule."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "ISO date when installment is due (YYYY-MM-DD).",
+          "minLength": 10,
+          "maxLength": 25
+        },
+        "scheduledAmount": {
+          "type": "number",
+          "description": "Total installment payment due."
+        },
+        "principalComponent": {
+          "type": "number",
+          "description": "Principal portion of the installment."
+        },
+        "interestComponent": {
+          "type": "number",
+          "description": "Interest portion of the installment."
+        },
+        "remainingBalanceAfter": {
+          "type": "number",
+          "description": "Projected principal balance remaining after this installment."
+        },
+        "amountPaid": {
+          "type": "number",
+          "description": "Actual amount collected against this installment."
+        },
+        "paidDate": {
+          "type": "string",
+          "description": "ISO date of payment settlement or empty string if unpaid.",
+          "minLength": 0,
+          "maxLength": 30
+        },
+        "paymentReference": {
+          "type": "string",
+          "description": "Receipt reference (e.g., Mobile Money / Bank RTGS ID).",
+          "minLength": 0,
+          "maxLength": 80
+        },
+        "status": {
+          "type": "string",
+          "description": "Repayment status of the installment.",
+          "enum": ["upcoming", "due_soon", "paid", "partial", "overdue"]
+        },
+        "reminderSentCount": {
+          "type": "number",
+          "description": "Count of payment reminders sent for this installment."
+        },
+        "lastReminderAt": {
+          "type": "string",
+          "description": "ISO timestamp of most recent reminder or empty string.",
+          "minLength": 0,
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of installment creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last installment update."
+        }
+      },
+      "required": [
+        "ownerId",
+        "loanId",
+        "installmentNumber",
+        "dueDate",
+        "scheduledAmount",
+        "principalComponent",
+        "interestComponent",
+        "remainingBalanceAfter",
+        "amountPaid",
+        "paidDate",
+        "paymentReference",
+        "status",
+        "reminderSentCount",
+        "lastReminderAt",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Reminder": {
+      "title": "Reminder",
+      "description": "An automated or manual payment reminder log dispatched to a borrower.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the portfolio owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "loanId": {
+          "type": "string",
+          "description": "Associated loan document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "loanReference": {
+          "type": "string",
+          "description": "Human-readable facility code.",
+          "minLength": 3,
+          "maxLength": 40
+        },
+        "borrowerName": {
+          "type": "string",
+          "description": "Recipient borrower name.",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "borrowerContact": {
+          "type": "string",
+          "description": "Phone number or email address used for dispatch.",
+          "minLength": 3,
+          "maxLength": 120
+        },
+        "channel": {
+          "type": "string",
+          "description": "Communication channel.",
+          "enum": ["SMS", "Email", "WhatsApp"]
+        },
+        "triggerType": {
+          "type": "string",
+          "description": "Reason the reminder was generated.",
+          "enum": ["Upcoming Due", "Due Today", "Overdue Escalation", "Payment Receipt"]
+        },
+        "installmentNumber": {
+          "type": "number",
+          "description": "Associated installment sequence number."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Due date of the referenced installment.",
+          "minLength": 10,
+          "maxLength": 25
+        },
+        "amountDue": {
+          "type": "number",
+          "description": "Amount referenced in the reminder."
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency of the amount.",
+          "enum": ["UGX", "USD"]
+        },
+        "messageBody": {
+          "type": "string",
+          "description": "Formatted reminder text dispatched to the borrower.",
+          "minLength": 5,
+          "maxLength": 1000
+        },
+        "deliveryStatus": {
+          "type": "string",
+          "description": "Current status of the reminder notification.",
+          "enum": ["dispatched", "scheduled", "acknowledged"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of reminder creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last reminder update."
+        }
+      },
+      "required": [
+        "ownerId",
+        "loanId",
+        "loanReference",
+        "borrowerName",
+        "borrowerContact",
+        "channel",
+        "triggerType",
+        "installmentNumber",
+        "dueDate",
+        "amountDue",
+        "currency",
+        "messageBody",
+        "deliveryStatus",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Trusted administrator record.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Admin email address.",
+          "minLength": 3,
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp."
+        }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "StaffMember": {
+      "title": "StaffMember",
+      "description": "An executive, finance officer, manager, sales person, or teller working at Pristen Holdings (U) Ltd.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the workspace owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Full legal name of the worker or executive.",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "employeeCode": {
+          "type": "string",
+          "description": "Staff identification code (e.g., PHL-STF-001).",
+          "minLength": 3,
+          "maxLength": 40
+        },
+        "role": {
+          "type": "string",
+          "description": "Assigned role within Pristen Investments Ltd.",
+          "enum": [
+            "executive_director",
+            "coo",
+            "cfo",
+            "finance_officer",
+            "hr",
+            "manager",
+            "sales_person",
+            "teller"
+          ]
+        },
+        "department": {
+          "type": "string",
+          "description": "Assigned corporate department.",
+          "enum": [
+            "Executive Office",
+            "Operations (COO)",
+            "Finance Department (CFO)",
+            "Human Resources (HR)",
+            "Credit Management",
+            "Sales & Origination",
+            "Teller Disbursement Desk"
+          ]
+        },
+        "phone": {
+          "type": "string",
+          "description": "Staff contact phone number.",
+          "minLength": 7,
+          "maxLength": 30
+        },
+        "email": {
+          "type": "string",
+          "description": "Staff corporate email address.",
+          "minLength": 3,
+          "maxLength": 120
+        },
+        "status": {
+          "type": "string",
+          "description": "Employment status.",
+          "enum": ["active", "suspended"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of staff creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last staff update."
+        }
+      },
+      "required": [
+        "ownerId",
+        "fullName",
+        "employeeCode",
+        "role",
+        "department",
+        "phone",
+        "email",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/borrowers/{borrowerId}": {
+      "schema": { "$ref": "#/entities/Borrower" },
+      "description": "Registered borrowers containing PII, isolated to owner or admin."
+    },
+    "/loans/{loanId}": {
+      "schema": { "$ref": "#/entities/Loan" },
+      "description": "Active and historical loan facilities."
+    },
+    "/loans/{loanId}/installments/{installmentId}": {
+      "schema": { "$ref": "#/entities/Installment" },
+      "description": "Amortization schedule installments for a specific loan."
+    },
+    "/reminders/{reminderId}": {
+      "schema": { "$ref": "#/entities/Reminder" },
+      "description": "Automated and manual payment reminder logs."
+    },
+    "/staff/{staffId}": {
+      "schema": { "$ref": "#/entities/StaffMember" },
+      "description": "Company workers, executives (Executive Director, COO, CFO), managers, sales persons, and tellers."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Trusted system administrators."
+    }
+  }
+}
